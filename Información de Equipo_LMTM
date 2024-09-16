@@ -1,0 +1,87 @@
+#!/bin/bash
+
+# Cybersecurity Ops with bash
+# getlocal.sh
+#
+# Descripción:
+# Recolecta información general del sistema y la guarda en un archivo.
+#
+# Uso:
+# bash getlocal.sh < cmds.txt
+# cmds.txt es un archivo con una lista de comandos a ejecutar
+
+# Función SepCmds - separa los comandos de la línea de entrada
+function SepCmds() {
+    # Revisar si la línea contiene un separador de tabla "|"
+    if [[ $ALINE == *"|"* ]]; then
+        # Extraer las tres partes separadas por "|"
+        LCMD=$(echo "$ALINE" | awk -F'|' '{print $1}' | xargs)
+        WCMD=$(echo "$ALINE" | awk -F'|' '{print $2}' | xargs)
+        TAG=$(echo "$ALINE" | awk -F'|' '{print $3}' | xargs)
+
+        # Elegir el comando correcto dependiendo del sistema operativo
+        if [[ $OSTYPE == "MSWin" ]]; then
+            CMD="$WCMD"
+        else
+            CMD="$LCMD"
+        fi
+    else
+        CMD="N/A"
+        TAG="N/A"
+    fi
+}
+
+# Función DumpInfo - recolecta y muestra la información del sistema
+function DumpInfo() {
+    printf "<systeminfo host=\"%s\" type=\"%s\">\n" "$HOSTNAME" "$OSTYPE"
+    printf " date=\"%s\" time=\"%s\"\n" "$(date +%Y-%m-%d)" "$(date +%H:%M:%S)"
+
+    readarray CMDS < cmds.txt  # Leer los comandos desde el archivo cmds.txt
+    for ALINE in "${CMDS[@]}"; do
+        # Ignorar comentarios y encabezados
+        if [[ ${ALINE:0:1} == '#' || $ALINE == *"+---"* || $ALINE == *"Purpose"* || -z $ALINE ]]; then
+            continue
+        fi
+
+        # Mostrar la línea procesada para depuración
+        echo "Procesando línea: $ALINE"
+
+        SepCmds  # Llamar a la función para procesar la línea
+
+        # Si el comando es 'N/A', se omite
+        if [[ ${CMD:0:3} == 'N/A' ]]; then
+            echo "Línea no válida: $ALINE"
+            continue
+        else
+            echo "Ejecutando comando: $CMD"  # Mostrar el comando que se va a ejecutar para depuración
+            printf "  <%s>\n" "$TAG"
+            eval "$CMD"  # Evalúa el comando
+            printf "  </%s>\n" "$TAG"
+        fi
+    done
+
+    printf "</systeminfo>\n"
+}
+
+# Detectar el sistema operativo usando 'uname'
+if [[ "$OSTYPE" == "" ]]; then
+    OS=$(uname -s)
+    case "$OS" in
+        Linux*)     OSTYPE="Linux" ;;
+        Darwin*)    OSTYPE="MacOS" ;;
+        CYGWIN*|MINGW*) OSTYPE="MSWin" ;;
+        *)          OSTYPE="Unknown" ;;
+    esac
+fi
+
+# Obtener el nombre del host
+HOSTNAME=$(hostname)
+
+# Nombre del archivo temporal donde se guarda la información
+TMPFILE="${HOSTNAME}.info"
+
+# Ejecutar la función DumpInfo y guardar la salida en el archivo temporal
+DumpInfo > "$TMPFILE" 2>&1
+
+# Mostrar mensaje final
+echo "Información del sistema guardada en: $TMPFILE"
