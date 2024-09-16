@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Solicitar la dirección IP o el rango de IPs al usuario
+read -p "Introduce la dirección IP o el rango de IPs a escanear: " ip_range
+
+# Solicitar el rango de puertos al usuario
+read -p "Introduce el rango de puertos a escanear (por ejemplo, 1-100): " port_range
+
+# Escaneo de puertos utilizando nmap
+echo "Escaneando puertos con nmap..."
+nmap -p $port_range $ip_range -oG - | grep "/open" > nmap_results.txt
+
+# Verificar que se hayan encontrado resultados
+echo "Resultados de nmap:"
+cat nmap_results.txt
+
+# Leer los resultados de nmap y usar netcat para verificar los puertos abiertos
+echo "Verificando puertos abiertos con netcat..."
+while read -r line; do
+    # Mostrar la línea leída para depuración
+    echo "Línea leída: $line"
+
+    ip=$(echo "$line" | awk '{print $2}')  # Obtener la dirección IP
+    ports=$(echo "$line" | grep -oP '\d+/open' | cut -d '/' -f 1)  # Obtener los puertos abiertos
+
+    # Mostrar IP y puertos encontrados para depuración
+    echo "IP: $ip"
+    echo "Puertos: $ports"
+
+    for port in $ports; do
+        nc -zv $ip $port 2>&1 | grep -q "open" && echo "Puerto $port está abierto en $ip"
+    done
+done < nmap_results.txt
