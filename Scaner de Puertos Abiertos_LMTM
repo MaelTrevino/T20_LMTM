@@ -1,0 +1,27 @@
+  GNU nano 8.0                                                  Ejemplo_Bash1.sh                                                           
+#!/bin/bash
+# Ejemplo de scanner de puertos
+# Obtenido de pentestlab.wordpress.com
+
+# Parámetros
+host=$1
+firstport=$2
+lastport=$3
+
+# Validación para asegurarse de que los puertos se pasen correctamente
+if [[ -z "$firstport" || -z "$lastport" ]]; then
+  echo "Error: Se necesitan tres parámetros: host, puerto_inicial y puerto_final."
+  exit 1
+fi
+
+# Función para escanear puertos
+function portscan {
+  for ((counter=$firstport; counter<=$lastport; counter++))
+  do
+    (echo > /dev/tcp/$host/$counter) >/dev/null 2>&1 \
+    && echo "$counter open"
+  done
+}
+
+# Llamada de la función
+portscan
